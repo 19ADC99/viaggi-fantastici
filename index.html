@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" class="locked">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exploration</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://tiles.openfreemap.org https://tiles.maps.eox.at https://ibasemaps-api.arcgis.com https://s3.amazonaws.com; connect-src 'self' blob: data: https://tiles.openfreemap.org https://tiles.maps.eox.at https://ibasemaps-api.arcgis.com https://s3.amazonaws.com; media-src 'self' blob:; worker-src 'self' blob:; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link href="lib/maplibre-gl.css" rel="stylesheet">
+<link href="style.css" rel="stylesheet">
+<link href="vault.css" rel="stylesheet">
+<script src="lib/maplibre-gl-csp.js"></script>
+<script src="lib/argon2.umd.min.js"></script>
+<script src="vault.js" defer></script>
+</head>
+<body>
+<div class="app viz-root">
+
+  <header class="top">
+    <div class="title">
+      <h1>Exploration</h1>
+      <p id="subtitle" class="muted"></p>
+    </div>
+
+    <!-- one filter row: it scopes every number, chart, map line and list row below -->
+    <div class="filters" role="toolbar" aria-label="Filters">
+      <div class="people-wrap" id="people-wrap" hidden>
+        <div class="seg people" role="radiogroup" aria-label="Whose activities" id="people"></div>
+        <label class="toggle small" id="solo-wrap" hidden><input type="checkbox" id="solo"> Solo only</label>
+      </div>
+      <label class="field">
+        <span>Period</span>
+        <select id="period"></select>
+      </label>
+      <div class="chips" id="types" role="group" aria-label="Activity types"></div>
+    </div>
+  </header>
+
+  <section class="stats" aria-label="Statistics">
+    <div class="tiles" id="tiles"></div>
+
+    <div class="card chart-card">
+      <div class="card-head">
+        <h2 id="bars-title">Distance per month</h2>
+        <div class="seg" role="radiogroup" aria-label="Metric" id="metric">
+          <button data-v="km" aria-pressed="true">Distance</button>
+          <button data-v="hours" aria-pressed="false">Time</button>
+          <button data-v="count" aria-pressed="false">Activities</button>
+          <button data-v="elev" aria-pressed="false">Elevation</button>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Bucket" id="bucket">
+          <button data-v="month" aria-pressed="true">Month</button>
+          <button data-v="year" aria-pressed="false">Year</button>
+        </div>
+        <button class="link" id="table-toggle" aria-expanded="false">Table</button>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="chart" id="bars"></div>
+      <div class="table-wrap" id="bars-table" hidden></div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="card-head">
+        <h2 id="cum-title">Cumulative distance</h2>
+      </div>
+      <div class="chart" id="cumulative"></div>
+    </div>
+  </section>
+
+  <!-- training plan: a thin banner, expanded with the banner or the "20 km plan" chip -->
+  <section class="training" id="training" aria-labelledby="tr-title" hidden>
+    <button class="tr-banner" id="tr-toggle" aria-expanded="false" aria-controls="tr-body">
+      <span class="flag" aria-hidden="true">⚑</span>
+      <span class="tr-name" id="tr-title">Training plan</span>
+      <span class="tr-summary" id="tr-summary"></span>
+      <span class="chev" aria-hidden="true"></span>
+    </button>
+    <div class="tr-body" id="tr-body" hidden>
+      <div class="tr-head">
+        <p class="muted small" id="tr-sub"></p>
+        <div class="legend" id="tr-legend"></div>
+      </div>
+      <div class="tiles tr-tiles" id="tr-tiles"></div>
+      <div class="card">
+        <div class="card-head"><h2>The plan, week by week</h2>
+          <span class="muted small">one column per week, one row per run · click a run to see it on the map</span></div>
+        <div class="plan-wrap" id="tr-plan"></div>
+      </div>
+      <div class="tr-charts">
+        <div class="card chart-card">
+          <div class="card-head"><h2>Distance per run (km)</h2></div>
+          <div class="chart" id="tr-dist"></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h2>Pace (min/km, faster is higher)</h2></div>
+          <div class="chart" id="tr-pace"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="explore">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-legend" aria-label="Map legend">
+        <div class="muted small">Activities per path</div>
+        <div class="ramp" id="ramp"></div>
+        <div class="muted small map-note" id="map-note"></div>
+        <label class="toggle small" id="media-toggle-wrap"><input type="checkbox" id="media-toggle" checked>
+          <span class="cam-dot" aria-hidden="true"></span> Photo spots</label>
+      </div>
+      <div class="views" aria-label="Map view">
+        <div class="seg" role="radiogroup" aria-label="Base map" id="views">
+          <button data-v="map" aria-pressed="true">Map</button>
+          <button data-v="terrain" aria-pressed="false">Terrain</button>
+          <button data-v="satellite" aria-pressed="false">Satellite</button>
+        </div>
+        <button class="seg-solo" id="relief3d" aria-pressed="false">3D</button>
+      </div>
+      <div class="selected" id="selected" hidden></div>
+    </div>
+
+    <aside class="list-panel" aria-label="Activities">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-list" aria-selected="true" aria-controls="pane-list">Activities</button>
+        <button role="tab" id="tab-media" aria-selected="false" aria-controls="pane-media">Photos &amp; videos <span class="n" id="media-count"></span></button>
+      </div>
+      <div class="list-tools">
+        <input id="search" type="search" placeholder="Search activities…" aria-label="Search activities by name or type">
+        <select id="sort" aria-label="Sort activities">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="km-desc">Longest first</option>
+          <option value="time-desc">Most time first</option>
+          <option value="name-asc">Name A–Z</option>
+        </select>
+      </div>
+      <div id="pane-list" role="tabpanel" aria-labelledby="tab-list" class="pane">
+        <div class="muted small" id="list-count"></div>
+        <div class="cols" id="cols"></div>
+      </div>
+      <div id="pane-media" role="tabpanel" aria-labelledby="tab-media" class="pane" hidden>
+        <div class="muted small" id="gallery-count"></div>
+        <div class="gallery" id="gallery"></div>
+      </div>
+    </aside>
+  </section>
+
+
+  <footer class="muted small" id="footer"></footer>
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+    <button class="lb-close" id="lb-close" aria-label="Close">×</button>
+    <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">‹</button>
+    <figure>
+      <div class="lb-media" id="lb-media"></div>
+      <figcaption>
+        <div><strong id="lb-title"></strong> <span class="muted" id="lb-meta"></span></div>
+        <div class="lb-actions"><span class="muted" id="lb-pos"></span>
+          <button class="link" id="lb-route">Show the route on the map</button></div>
+      </figcaption>
+    </figure>
+    <button class="lb-nav lb-next" id="lb-next" aria-label="Next">›</button>
+  </div>
+</div>
+
+
+</body>
+</html>

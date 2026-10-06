@@ -1,0 +1,16 @@
+{
+ "v": 1,
+ "kdf": {
+  "alg": "argon2id",
+  "m": 65536,
+  "t": 4,
+  "p": 1,
+  "len": 32,
+  "salt": "yQqZRZXMomY1bGqEF/im0w=="
+ },
+ "wraps": [
+  "8+4rEg4lJOat0loQJbvuC1HCAolWyMazDPhXdDaLnFoOQ8PCoLWGuf2fmoFwyXClp4RPrXRx4PXoRSur",
+  "eY8qR4pwEGHsbk6rUDbatW537X63Vc0OqLavUCbZJoEMIZ5mfuXi2COCVhcK3q3fK2agSvL9O/Ikr6qd"
+ ],
+ "data": "5ea4fefc8acfd8f98590a7e8"
+}
